@@ -20,7 +20,9 @@ we have that the stride and the kernel must be the same size to ensure no overla
 This means that we have a 14*14 grid of patches were each of them holds a 768 dimensional vector which is the embedding if that patch. When we flatten it we get a 14*14=196 
 1D sequence of patches (32,768,196), (whole rows, so (1,0), (1,1) . (2,0)).  
 
-
+The core idea is to reduce the number of entries attention has to handle. Since self-attentino is O(n^2), it would be impossible to make it efficient. If we have 3*224*224= 150528 values.
+After the patch embedding we would have 196*768=150528 values. Even tough we make this reorganization we lose no information. The thign we lose is the granualrity, Attention can not
+handle what happens in each patch since it only sees the patch as "one entity not a entity builty by entities"
 """
 
 class PatchEmbedding(nn.Module):
