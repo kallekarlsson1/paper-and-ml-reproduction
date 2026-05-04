@@ -42,3 +42,66 @@ class PatchEmbedding(nn.Module):
     
         return x
 
+
+"""
+Positional encoding and Class token
+
+When we attend to each token we will encode information about all other tokens and itself in the token. That token is now biased by its own information. we need a class level token
+that can represent the whole image. This is a learnable token and it is the one that is used for example classification. 
+
+Since the transformer does not handle the data sequentially (handles it in parallel), we need to encode some type of information that says what position the image patch has in the sequence.
+The transformer operates on the values of dimensions embedding in each patch. So we cant really have it "on the side". We then add the positional encoding to each embedding in each dimension for each 
+patch. So now there is positional information and "pixel" information. We work in relations, so the transformer is like a relational machine. The value of the pixels in each patch does not carry
+any meaningful information on its own, it only has that by relation to the other patches.
+EX
+image 4x4 pos0 pos1
+          pos2 pos3
+                col0 col1 col2 col3
+pe matrix pos0    0,    0,  0,  0,
+          pos1    1,    0.5,  1,  0.2
+          pos2    2,    2,  2,  2,
+          pos3    3,    3,  3,  3,  
+
+patch embedding  (pos1) [0.5, 0.5, 0.5, 0.5]
+pe                      [1,1,1,1]
+patch + pe = [1.5,1.0,1.5,0.7]
+each dimension of each patch now has information about its postion. 
+Each single values does not tell anything about the position. There is not global map where you can see where it should be placed. The transformer compares to differnet positions
+values and calculates how similar they are. Doing this with the whole image it will learn the ordering of the patches. So from the beginning it has no hard coded spatial knowledge,
+everything is learned. This is more flexible than CNN but requires more data.
+
+"""
+
+
+
+
+class PositionalEnconding(nn.Module):
+    def __init__(self, d_model, max_seq_length):
+        super().__init__()
+        
+        self.cls_token = nn.Parameter(torch.randn(1,1,d_model))
+
+        #positional encoding
+        pe = torch.zeros(max_seq_length, d_model)
+
+        for pos in range(max_seq_length):
+            for i in range(d_model):
+                if  i % 2 == 0 :
+                    pe[pos][i] = np.sin(pos/(10000**(i/d_model)))
+                else:
+                    pe[pos][i] = np.cos(pos/(10000**(i-1/d_model)))
+        self.register_buffer('pe', pe.unsqueeze(0))
+
+    def forward(self, x):
+
+        #give every imagne in batch a class token
+        cls_in_all_image = self.cls_token.expand(x.size()[0], -1, -1)
+
+        #add cls token to beginning of every patch sequence for each image 
+        x = torch.cat((cls_in_all_image,x), dim=1)
+
+        x = x + self.pe
+
+        return x
+
+            
